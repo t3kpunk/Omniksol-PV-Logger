@@ -56,6 +56,7 @@ Provides TCP forwarding. But the current server runs on UDP
 In this example the Raspberry Pi IP on the wifi network = 192.168.0.100
 
 iptables -t nat -A PREROUTING -p tcp -d 176.58.117.69 --dport 10004 -j DNAT --to-destination 192.168.0.100:10004
+
 iptables -t nat -A OUTPUT -p tcp -d 176.58.117.69 -j DNAT --to-destination 192.168.0.100
 
 ## TODO
