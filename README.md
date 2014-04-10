@@ -35,19 +35,27 @@ syslog example that can be used on the Raspberry Pi to monitor it.
 edit /etc/rsyslog.conf
 
 $WorkDirectory /var/spool/rsyslog  # where to place spool files
+
 $ActionQueueFileName fwdRule1      # unique name prefix for spool files
+
 $ActionQueueMaxDiskSpace 1g        # 1gb space limit (use as much as possible)
+
 $ActionQueueSaveOnShutdown on      # save messages to disk on shutdown
+
 $ActionQueueType LinkedList        # run asynchronously
+
 $ActionResumeRetryCount -1         # infinite retries if host is down
 
-remote host is: name/ip:port, e.g. 192.168.0.7:514, port optional
 
-Provides UDP forwarding. The IP is the server's IP address
-*.* @192.168.0.7:514
+\# remote host is: name/ip:port, e.g. 192.168.0.7:514, port optional
 
-Provides TCP forwarding. But the current server runs on UDP
-*.* @@192.168.0.2:514
+\# Provides UDP forwarding. The IP is the server's IP address
+
+\*.\* @192.168.0.7:514
+
+\# Provides TCP forwarding. But the current server runs on UDP
+
+\*.\* @@192.168.0.2:514
 
 
 
