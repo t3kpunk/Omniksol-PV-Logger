@@ -1,0 +1,172 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides: omniksol4kd.py
+# Required-Start: $network $syslog
+# Required-Stop: $network
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Description: Start or stop the omniklog web server
+### END INIT INFO
+
+#crontab -e
+#5       *       *       *       *       /etc/init.d/omniklog start
+
+base=`echo ${0##*/}`
+
+log_msg() {
+    if [ -z "${1:-}" ]; then
+        return 1
+    fi
+    echo " * $base: $@" || true
+    echo " * $base: $@" >> $LOG
+    logger --tag "$base" "$@"
+}
+
+
+# Photovoltaic Systems
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+
+OMNIKD_OPTS=""
+OMNIKD_USER=pi
+
+DAEMON="omniksol4kd.py"
+DIR="/home/$OMNIKD_USER/bin/Omniksol-PV-Logger"
+FILE="$DIR/$DAEMON"
+PORT="10004"
+EXTERNAL_IP="192.168.0.100"			   #<<<<<<< listener IP
+NAME=omniklog
+DESC="Omniklog listener"
+VERBOSE="yes"
+LOG="/var/log/omniklog.log"
+PV_WWW_IP="176.58.117.69"
+OMNIK_WIFI="192.168.0.123"                         #<<<<<<< change this to the omniksol wifi module IP
+
+
+echo "--------------------------------------" |tee -a $LOG
+date                                          |tee -a $LOG
+echo "--------------------------------------" |tee -a $LOG
+
+
+
+init() {
+    [ ! -f $LOG ] && touch $LOG
+    chgrp adm $LOG
+    chmod 660 $LOG
+    if ! which lsof >/dev/null; then
+        log_msg "solar [error]: lsof not installed"
+        exit 1
+    fi
+}
+
+
+
+who_running() {
+    #Check if there is a process on port
+    lsof -i :$PORT
+    ES=$?           #ES=0 if port in use
+    if [ $ES -eq 1 ]; then  #if lsof finds nothing
+        netstat -tulpn | grep :$PORT
+        ES=$?           #ES=0 if port in use
+        if [ $ES -eq 1 ]; then  #if netstat finds nothing
+            log_msg "solar [info]: $DAEMON not running"
+            return 0
+        else
+            log_msg "solar [info]: Wait till socket is closed"
+            sleep 5
+            running
+        fi
+    else
+        #Check if which process is using the port
+        listener=`lsof -i :$PORT |grep -v COMMAND|cut -d' ' -f1`
+        if [ `echo $DAEMON |grep "$listener"` ]; then
+            log_msg "solar [info]: daemon $listener is running!"
+            exit 0
+        fi
+        log_msg "solar [error]: port $PORT in use by: $listener"
+        exit 1
+    fi
+}
+
+
+connectivity() {
+    # Check the omnik wifi module
+    ping -c1 -W1 $OMNIK_WIFI &>/dev/null
+    if [ $? -eq 0 ]; then
+        log_msg "solar [info]: wifi is reachable"
+    else
+        log_msg "solar [error]: omniksol wifi not reachable"
+    fi
+
+    iptables  -t nat -nvL|grep -q $PV_WWW_IP &>/dev/null
+    if [ $? -eq 0 ]; then
+        log_msg "solar [info]: iptables pre-routing is configured"
+    else
+        log_msg "solar [error]: iptables pre-routing not configured"
+        iptables -t nat -A PREROUTING -p tcp -d $PV_WWW_IP --dport 10004 -j DNAT --to-destination $EXTERNAL_IP:10004
+        iptables -t nat -A OUTPUT -p tcp -d $PV_WWW_IP -j DNAT --to-destination $EXTERNAL_IP
+        log_msg "solar [info]: iptables now configured :-)"
+    fi
+}
+
+
+do_stop() {
+    ps axho comm| grep -q $DAEMON &>/dev/null
+	if [ $? -eq 0 ]; then
+       log_msg "solar [info]: stopping omniklog server"
+       kill -HUP `lsof -t -i :$PORT` 2> /dev/null
+	   return $?
+    else
+        log_msg "solar [info]: server not running"
+    fi
+}
+
+
+do_start() {
+    connectivity
+    ps axho comm| grep -q $DAEMON &>/dev/null
+    if [ $? -eq 0 ]; then
+        log_msg "solar [warning]: server already running"
+        exit 0
+    else
+        log_msg "solar [info]: server not running"
+    fi
+    if [ -f $FILE ]; then
+       log_msg "solar [info]: starting server"
+       cd $DIR
+       su -l $OMNIKD_USER -c "python $FILE" &
+       return $?
+    fi
+}
+
+
+init
+
+case "$1" in
+    start)
+        log_msg "solar [info]: ___solar_web_server___";
+        do_start
+        ;;
+    reload|force-reload)
+        echo "solar [error]: argument '$1' not supported" >&2
+        exit 3
+        ;;
+    restart)
+        do_stop                         #/etc/init.d/omniklog stop
+        do_start                        #/etc/init.d/omniklog start
+        ;;
+    check)
+        connectivity
+        who_running
+        ;;
+    stop)
+        log_msg "solar [info]: stopping server"
+        kill -HUP `lsof -t -i :$PORT` 2> /dev/null
+        ;;
+    *)
+        echo "Usage: $0 start|stop|restart" >&2
+        exit 3
+        ;;
+esac
+
