@@ -34,28 +34,23 @@ syslog which could be useful for remote monitoring.
 syslog example that can be used on the Raspberry Pi to monitor it.
 edit /etc/rsyslog.conf
 
-$WorkDirectory /var/spool/rsyslog  # where to place spool files
-
-$ActionQueueFileName fwdRule1      # unique name prefix for spool files
-
-$ActionQueueMaxDiskSpace 1g        # 1gb space limit (use as much as possible)
-
-$ActionQueueSaveOnShutdown on      # save messages to disk on shutdown
-
-$ActionQueueType LinkedList        # run asynchronously
-
-$ActionResumeRetryCount -1         # infinite retries if host is down
+    $WorkDirectory /var/spool/rsyslog  # where to place spool files
+    $ActionQueueFileName fwdRule1      # unique name prefix for spool files
+    $ActionQueueMaxDiskSpace 1g        # 1gb space limit (use as much as possible)
+    $ActionQueueSaveOnShutdown on      # save messages to disk on shutdown
+    $ActionQueueType LinkedList        # run asynchronously
+    $ActionResumeRetryCount -1         # infinite retries if host is down
 
 
-\# remote host is: name/ip:port, e.g. 192.168.0.7:514, port optional
+ \# remote host is: name/ip:port, e.g. 192.168.0.7:514, port optional
+ 
+ # Provides UDP forwarding. The IP is the server's IP address
 
-\# Provides UDP forwarding. The IP is the server's IP address
+    *.* @192.168.0.7:514
 
-\*.\* @192.168.0.7:514
+ \# Provides TCP forwarding. But the current server runs on UDP
 
-\# Provides TCP forwarding. But the current server runs on UDP
-
-\*.\* @@192.168.0.2:514
+    *.* @@192.168.0.2:514
 
 
 
@@ -63,9 +58,8 @@ $ActionResumeRetryCount -1         # infinite retries if host is down
 
 In this example the Raspberry Pi IP on the wifi network = 192.168.0.100
 
-iptables -t nat -A PREROUTING -p tcp -d 176.58.117.69 --dport 10004 -j DNAT --to-destination 192.168.0.100:10004
-
-iptables -t nat -A OUTPUT -p tcp -d 176.58.117.69 -j DNAT --to-destination 192.168.0.100
+    iptables -t nat -A PREROUTING -p tcp -d 176.58.117.69 --dport 10004 -j DNAT --to-destination 192.168.0.100:10004
+    iptables -t nat -A OUTPUT -p tcp -d 176.58.117.69 -j DNAT --to-destination 192.168.0.100
 
 ## TODO
 Adding support for storing the data in a database and uploading to
